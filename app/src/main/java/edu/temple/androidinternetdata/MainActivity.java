@@ -14,7 +14,11 @@ import android.widget.Toast;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class MainActivity extends Activity {
@@ -49,7 +53,7 @@ public class MainActivity extends Activity {
                     @Override
                     public void run(){
 
-                        URL stockQuoteUrl = null;
+                        URL stockQuoteUrl;
 
                         try {
 
@@ -92,6 +96,40 @@ public class MainActivity extends Activity {
             }
         });
 
+        uploadButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Thread t = new Thread() {
+                    @Override
+                    public void run(){
+                        try {
+                            URL url = new URL("http://cis-linux1.temple.edu/~tuf80213/courses/temple/lab/uploaddata.php");
+                            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                            conn.setReadTimeout(10000);
+                            conn.setConnectTimeout(15000);
+                            conn.setRequestMethod("POST");
+                            conn.setDoInput(true);
+                            conn.setDoOutput(true);
+
+                            OutputStream os = conn.getOutputStream();
+                            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, "UTF-8"));
+                            writer.write(portfolio.serialize());
+                            writer.flush();
+                            writer.close();
+                            os.close();
+
+                            // Send response code to handler
+                            uploadResponseHandler.sendEmptyMessage(conn.getResponseCode());
+                            conn.connect();
+                        } catch (Exception e){
+                            e.printStackTrace();
+                        }
+                    }
+                };
+                t.start();
+            }
+        });
+
     }
 
     Handler stockResponseHandler = new Handler(new Handler.Callback() {
@@ -112,6 +150,22 @@ public class MainActivity extends Activity {
             }
 
             updateViews();
+
+            return false;
+        }
+    });
+
+    Handler uploadResponseHandler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(Message msg) {
+            String text;
+            if (msg.what == HttpURLConnection.HTTP_OK){
+                text = "Data uploaded";
+            } else {
+                text = "Data not uploaded. Something went wrong.";
+            }
+
+            Toast.makeText(MainActivity.this, text, Toast.LENGTH_LONG).show();
 
             return false;
         }
